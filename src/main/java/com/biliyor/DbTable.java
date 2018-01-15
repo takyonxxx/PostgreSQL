@@ -1,11 +1,8 @@
 package com.biliyor;
 
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.Font;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -13,8 +10,6 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableModel;
 
