@@ -28,3 +28,8 @@ SELECT * FROM person;
 
 INSERT INTO actions(id, person_id, date,dest) VALUES(1, 1, '2018-01-01', 'action1');
 INSERT INTO actions(id, person_id, date,dest) VALUES(2, 2, '2018-01-01', 'action2');
+
+ALTER TABLE person DROP COLUMN person_image;
+
+ALTER TABLE person ADD COLUMN image_name VARCHAR(50);
+ALTER TABLE person ADD COLUMN image bytea;

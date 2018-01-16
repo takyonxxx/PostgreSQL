@@ -3,6 +3,7 @@ package com.biliyor;
 import java.awt.Color;
 import java.awt.EventQueue;
 import java.awt.Font;
+import java.io.ByteArrayInputStream;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -21,12 +22,32 @@ public class DbTable extends JTable {
 	private Connection con = null;
 	private ToolBar toolBar;	
 	private DbPanel dbPanel;
-	
+
 	private String id;
 	private String name;
 	private String sdate;
 	private String action;
-	
+	private String imageName;	
+	private byte[] imageBytes;
+
+	public byte[] getImageBytes() {
+		return imageBytes;
+	}
+
+	public void setImageBytes(byte[] imageBytes) {
+		this.imageBytes = imageBytes;
+	}
+
+	public String getImageName() {
+		return imageName;
+	}
+
+	public void setImageName(String image_name) {
+		this.imageName = image_name;
+	}
+
+	private static DbTable instance;
+
 	public String getId() {
 		return id;
 	}
@@ -34,7 +55,7 @@ public class DbTable extends JTable {
 	public void setId(String id) {
 		this.id = id;
 	}
-	
+
 	public String getName() {
 		return name;
 	}
@@ -59,20 +80,28 @@ public class DbTable extends JTable {
 		this.action = action;
 	}	
 
+	public static DbTable getInstance() {
+
+		if (instance == null) {
+			instance = new DbTable();
+		} 
+		return instance;
+	}
 
 	public DbTable()
 	{
 		// Change A JTable Background Color, Font Size, Font Color, Row Height
 		setBackground(Color.LIGHT_GRAY);
 		setForeground(Color.black);
-		Font font = new Font("",1,18);
+		Font font = new Font("",1,14);
 		setFont(font);
-		setRowHeight(25);		
+		setRowHeight(25);	
+		setRowWidth(100);
 
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {				 
 				try {
-					
+
 					dbPanel = DbPanel.getInstance();	
 					dbPanel.setDbListener(new DbListener() {
 						private String id;
@@ -83,20 +112,23 @@ public class DbTable extends JTable {
 						}
 
 						@Override
-						public void setValues(String id, String name, String date, String action) {
+						public void setValues(String id, String name, String imageName, byte[] imageBytes, String date, String action) {
 							setId(id);
 							setName(name);
 							setSdate(date);
 							setAction(action);
+							setImageName(imageName);
+							setImageBytes(imageBytes);
 						}
+
 					});								
-					
+
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			}
 		});		
-		
+
 		toolBar = ToolBar.getInstance();
 		toolBar.setDbListener(new DbListener() {
 			@Override
@@ -114,13 +146,19 @@ public class DbTable extends JTable {
 			}
 
 			@Override
-			public void setValues(String id, String name, String date, String action) {
+			public void setValues(String id, String name, String imageName, byte[] imageBytes, String date, String action) {
 				// TODO Auto-generated method stub
 
 			}
 		});	
-		
+
+
 		connectDb();			
+
+	}
+
+	private void setRowWidth(int i) {
+		// TODO Auto-generated method stub
 
 	}
 
@@ -163,7 +201,7 @@ public class DbTable extends JTable {
 	public void searchDb(String str)
 	{
 
-		String query = "SELECT person.id,name,date,dest From person, " +
+		String query = "SELECT person.id,date,name,dest,image_name,image From person, " +
 				"actions WHERE (person.id = actions.person_id AND person.name  SIMILAR TO '%(" +
 				str +
 				")%') ORDER BY id ASC ";
@@ -182,7 +220,7 @@ public class DbTable extends JTable {
 
 	public void addDb()
 	{	
-		try {
+		try {	
 
 			int id = Integer.parseInt(this.id);
 			int person_id = id;				
@@ -191,10 +229,14 @@ public class DbTable extends JTable {
 			java.time.LocalDate textFieldAsDate = java.time.LocalDate.parse(this.sdate, formatter);
 			java.sql.Date sqlDate = java.sql.Date.valueOf(textFieldAsDate);
 
-			String stm = "INSERT INTO person(id, name) VALUES(?, ?)";
+			ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
+
+			String stm = "INSERT INTO person(id, name, image_name, image) VALUES(?, ?, ?, ?)";
 			pst = con.prepareStatement(stm);
 			pst.setInt(1, id);
-			pst.setString(2, this.name);    			
+			pst.setString(2, this.name);  
+			pst.setString(3, imageName);
+			pst.setBinaryStream(4, bais, imageBytes.length);
 			pst.executeUpdate();
 
 			stm = "INSERT INTO actions(id, person_id, date,dest) VALUES(?, ?, ?, ?)";
@@ -207,7 +249,7 @@ public class DbTable extends JTable {
 
 			searchDb("");
 
-		} catch (SQLException ex) {
+		} catch (SQLException ex){
 			Logger lgr = Logger.getLogger(App.class.getName());
 			lgr.log(Level.SEVERE, ex.getMessage(), ex);
 		}
@@ -216,20 +258,28 @@ public class DbTable extends JTable {
 	public void deleteDb()
 	{
 		try {	
-			
+
 			int id = Integer.parseInt(this.id);
 
 			String SQL = "DELETE FROM actions WHERE person_id = ?";	
 			pst = con.prepareStatement(SQL);
 			pst.setInt(1, id);
-		    pst.executeUpdate();		 
+			pst.executeUpdate();		 
 
 			SQL = "DELETE FROM person WHERE id = ?";
 			pst = con.prepareStatement(SQL);
 			pst.setInt(1, id);
 			pst.executeUpdate();		 
 
-			searchDb("");
+			searchDb("");		
+
+			if(getRowCount() > 0)
+			{
+				int lastrow = getRowCount() -1;
+				// This will set the selection to the first row
+				setRowSelectionInterval(lastrow, lastrow);			
+			}
+
 
 		} catch (SQLException ex) {
 			Logger lgr = Logger.getLogger(App.class.getName());
@@ -242,16 +292,20 @@ public class DbTable extends JTable {
 		try {	
 
 			int id = Integer.parseInt(this.id);
-			int person_id = id;				
+			int person_id = id;		
 
 			java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd");
 			java.time.LocalDate textFieldAsDate = java.time.LocalDate.parse(this.sdate, formatter);
 			java.sql.Date sqlDate = java.sql.Date.valueOf(textFieldAsDate);
 
-			String stm = "UPDATE person SET name = ?  WHERE id = ?";
+			ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
+
+			String stm = "UPDATE person SET name = ?, image_name = ?, image= ? WHERE id = ?";
 			pst = con.prepareStatement(stm);			
 			pst.setString(1, this.name);  
-			pst.setInt(2, id);
+			pst.setString(2, imageName);
+			pst.setBinaryStream(3, bais, imageBytes.length);
+			pst.setInt(4, id);   
 			pst.executeUpdate();
 
 			stm = "UPDATE actions SET date = ? ,dest = ? WHERE person_id = ?";
@@ -269,7 +323,6 @@ public class DbTable extends JTable {
 		}
 	}
 
-
 	public void resultSetToTableModel(ResultSet rs) throws SQLException{
 		//Create new table model
 		model  = new DefaultTableModel();	
@@ -286,17 +339,17 @@ public class DbTable extends JTable {
 		}
 
 		//Create array of Objects with size of column count from meta data
-		Object[] row = new Object[columnCount];
+		Object[] row = new Object[columnCount];	
 
 		//Scroll through result set
-		while (rs.next()){
+		while (rs.next()){							
 			//Get object from column with specific index of result set to array of objects
 			for (int i = 0; i < columnCount; i++){
 				row[i] = rs.getObject(i+1);
 			}
 			//Now add row to table model with that array of objects as an argument
 			model.addRow(row);
-		}
+		}	
 
 		//Now add that table model to your table and you are done :D
 		setModel(model);
